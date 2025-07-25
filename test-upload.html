@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Viewer API Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .upload-section {
+            border: 2px dashed #ccc;
+            padding: 20px;
+            margin: 20px 0;
+            text-align: center;
+        }
+        .upload-section.dragover {
+            border-color: #007bff;
+            background-color: #f8f9fa;
+        }
+        .file-input {
+            margin: 10px 0;
+        }
+        .btn {
+            background-color: #007bff;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .btn:hover {
+            background-color: #0056b3;
+        }
+        .result {
+            margin: 20px 0;
+            padding: 10px;
+            border-radius: 5px;
+        }
+        .success {
+            background-color: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        .error {
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        .file-list {
+            margin: 20px 0;
+        }
+        .file-item {
+            padding: 10px;
+            border: 1px solid #ddd;
+            margin: 5px 0;
+            border-radius: 5px;
+        }
+        .file-item a {
+            color: #007bff;
+            text-decoration: none;
+        }
+        .file-item a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <h1>3D Viewer API Test</h1>
+
+    <div class="upload-section" id="uploadArea">
+        <h3>Upload 3D Model Files</h3>
+        <p>Drag and drop files here or click to select</p>
+        <input type="file" id="fileInput" multiple accept=".3dm,.3ds,.3mf,.amf,.bim,.brep,.dae,.fbx,.fcstd,.gltf,.glb,.ifc,.iges,.step,.stl,.obj,.off,.ply,.wrl" class="file-input">
+        <br>
+        <button class="btn" onclick="uploadFiles()">Upload Files</button>
+        <button class="btn" onclick="listFiles()">List Files</button>
+    </div>
+
+    <div id="result"></div>
+    <div id="fileList" class="file-list"></div>
+
+    <script>
+        const API_BASE = 'http://localhost:8080';
+
+        // Drag and drop functionality
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            fileInput.files = e.dataTransfer.files;
+        });
+
+        async function uploadFiles() {
+            const files = fileInput.files;
+            if (files.length === 0) {
+                showResult('Please select files to upload', 'error');
+                return;
+            }
+
+            const formData = new FormData();
+            for (let file of files) {
+                formData.append('files', file);
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/api/upload/multiple`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showResult(`Successfully uploaded ${result.data.length} files`, 'success');
+                    listFiles(); // Refresh file list
+                } else {
+                    showResult(`Upload failed: ${result.message}`, 'error');
+                }
+            } catch (error) {
+                showResult(`Upload error: ${error.message}`, 'error');
+            }
+        }
+
+        async function listFiles() {
+            try {
+                const response = await fetch(`${API_BASE}/api/files`);
+                const result = await response.json();
+
+                const fileListDiv = document.getElementById('fileList');
+                fileListDiv.innerHTML = '<h3>Uploaded Files</h3>';
+
+                if (result.files.length === 0) {
+                    fileListDiv.innerHTML += '<p>No files uploaded yet.</p>';
+                } else {
+                    result.files.forEach(file => {
+                        const fileItem = document.createElement('div');
+                        fileItem.className = 'file-item';
+                        fileItem.innerHTML = `
+                            <strong>${file.filename}</strong><br>
+                            Size: ${formatFileSize(file.size)}<br>
+                            Uploaded: ${new Date(file.uploadDate).toLocaleString()}<br>
+                            <a href="${API_BASE}${file.viewerUrl}" target="_blank">View in 3D Viewer</a>
+                        `;
+                        fileListDiv.appendChild(fileItem);
+                    });
+                }
+            } catch (error) {
+                showResult(`Error listing files: ${error.message}`, 'error');
+            }
+        }
+
+        function showResult(message, type) {
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = `<div class="result ${type}">${message}</div>`;
+        }
+
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        // Load files list on page load
+        listFiles();
+    </script>
+</body>
+</html>

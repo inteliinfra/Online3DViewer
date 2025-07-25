@@ -11,7 +11,7 @@ WORKDIR /app
 COPY package*.json ./
 
 # Install dependencies
-RUN npm ci
+RUN npm install
 
 # Copy source code
 COPY . .
@@ -26,5 +26,5 @@ RUN ln -sf /app/build website/build && \
 # Expose port 8080
 EXPOSE 8080
 
-# Start the development server on port 8080
-CMD ["npx", "http-server", "website", "-p", "8080", "-a", "0.0.0.0"]
+# Start the API server on port 8080
+CMD ["npm", "run", "api"]
